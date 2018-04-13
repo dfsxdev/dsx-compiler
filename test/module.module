@@ -1,0 +1,16 @@
+<script>
+console.log('script from module');
+</script>
+
+<style>
+.module { width: 100px; height: 100px; }
+</style>
+
+<div>
+    <H1>{{propa}}</H1>
+    <img src="images/a.png">
+    <div class="abc">
+        {{'propb is: ' + propb}}
+        {{'error is: ' + error}}
+    </div>
+</div>

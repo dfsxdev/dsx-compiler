@@ -1,0 +1,13 @@
+<!DOCTYPE html><html><head><script type="text/javascript" src="jquery.min.js"></script><style type="text/css">
+.module { width: 100px; height: 100px; }
+</style><script type="text/javascript">
+$(function(){
+var __mod_module = function(__mod_id) {
+console.log('script from module');
+}
+__mod_module("mod-001067d");
+__mod_module("mod-002067d");
+__mod_module("mod-003067d");
+__mod_module("mod-004067d");
+});
+</script></head><body><h1>abc</h1><img src="images/a.png"><div class="abc">message is: def</div><div id="mod-001067d"><h1>mmm</h1><img src="images/a.png"><div class="abc"> propb is: nnn error is: error1 </div></div><div id="mod-002067d"><h1>mmm</h1><img src="images/a.png"><div class="abc"> propb is: nnn error is: error2 </div></div><div id="mod-003067d"><h1>mmm</h1><img src="images/a.png"><div class="abc"> propb is: nnn error is: error3 </div></div><div id="mod-004067d"><h1>xxx</h1><img src="images/a.png"><div class="abc"> propb is: yyy error is: custom error </div></div></body></html>
