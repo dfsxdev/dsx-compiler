@@ -60,8 +60,14 @@ function evalExpTree(expression, data) {
                     return ops[0] < ops[1];
                 case '<=':
                     return ops[0] <= ops[1];
+                case '==':
+                    return ops[0] == ops[1];
+                case '===':
+                    return ops[0] === ops[1];
                 case '!=':
                     return ops[0] != ops[1];
+                case '!==':
+                    return ops[0] !== ops[1];
                 default:
                     throw new Error('unknown operator ' + expression.operator);
                 }
