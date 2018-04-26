@@ -211,6 +211,7 @@ function processVnode(module, resolver, vnode, idGen) {
         } else {
             // directives may change the data
             vnode.data = Object.assign({}, data);
+            vnode.dataCopied = true;
         }
     }
     

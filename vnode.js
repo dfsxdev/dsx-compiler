@@ -5,6 +5,7 @@
  * parent: object
  * children: object array
  * data: object
+ * dataCopied: bool
  * delayDeleted: bool
  */
 
@@ -21,10 +22,12 @@ module.exports = function (tagname, attrs, text) {
         clone() {
             let result = Object.assign({}, this);
             result.attrs = Object.assign({}, this.attrs);
-            result.data = Object.assign({}, this.data);
-            if (result.children) {
-                for (let i = 0; i < result.children.length; ++i) {
-                    result.children[i] = result.children[i].clone();
+            result.data = (this.dataCopied && this.data ? Object.assign({}, this.data) : this.data);
+            if (this.children) {
+                result.children = [];
+                for (let i = 0; i < this.children.length; ++i) {
+                    result.children.push(this.children[i].clone());
+                    result.children[i].parent = result;
                 }
             }
             return result;

@@ -6,7 +6,7 @@ let repo = {
             onbind(vnode, val) {
                 // evaluate if expression
                 val = evaluator.getHtmlAttrExp(val);
-                return evaluator.evalExp(val).then((result) => {
+                return evaluator.evalExp(val, vnode.data).then((result) => {
                     if (!result) {
                         vnode.delayDeleted = true;
                     } else if(vnode.parent) {
@@ -83,7 +83,7 @@ let repo = {
                         vnode.parent.children.splice(vnodeIndex, 0, cloneVnode);
                     }
                     
-                    // put forworad in case this property will be cloned
+                    // put forward in case this property will be cloned
                     vnode.delayDeleted = true;
                 });
             }
