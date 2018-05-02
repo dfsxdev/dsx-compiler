@@ -22,7 +22,13 @@ module.exports = function (tagname, attrs, text) {
         clone() {
             let result = Object.assign({}, this);
             result.attrs = Object.assign({}, this.attrs);
-            result.data = (this.dataCopied && this.data ? Object.assign({}, this.data) : this.data);
+            //it's enough to just copy local data
+            if(this.dataCopied && this.data) {
+                result.data = Object.assign({}, this.data);
+                if(result.data.local) {
+                    result.data.local = Object.assign({}, this.data.local);
+                }
+            }
             if (this.children) {
                 result.children = [];
                 for (let i = 0; i < this.children.length; ++i) {

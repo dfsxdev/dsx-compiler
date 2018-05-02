@@ -57,11 +57,19 @@ let bindDirectives = (vnode) => {
     return setupDirective();
 };
 
+let getModuleEvalData = (module) => {
+    return Object.assign({}, module.data.global, module.data.local );
+}
+
+let getVnodeEvalData = (vnode) => {
+    return Object.assign({ $parent: vnode.data.parent }, vnode.data.global, vnode.data.local );
+}
+
 let evalHtmlAttrs = (vnode) => {
     let promises = [];
     for (let key in vnode.attrs) {
         if (key.slice(0, 3) != 'ds-' || !directiveRepo.has(key.slice(3))) {
-            promises.push(evaluator.evalHtmlAttr(vnode.attrs[key], vnode.data)
+            promises.push(evaluator.evalHtmlAttr(vnode.attrs[key], getVnodeEvalData(vnode))
                 .then((val) => {
                     vnode.attrs[key] = val;
                 }));
@@ -77,7 +85,7 @@ let evalModuleAttrs = (vnode) => {
     let promises = [];
     for (let key in vnode.attrs) {
         if (key.slice(0, 3) != 'ds-' || !directiveRepo.has(key.slice(3))) {
-            promises.push(evaluator.evalModuleAttr(vnode.attrs[key], vnode.data)
+            promises.push(evaluator.evalModuleAttr(vnode.attrs[key], getVnodeEvalData(vnode))
                 .then((val) => {
                     attrs[key] = val;
                 }));
@@ -168,7 +176,7 @@ function processScripts(module) {
     let scriptPromises = [];
     module.scripts.forEach((script) => {
         if (script.text) {
-            scriptPromises.push(evaluator.evalRawText(script.text, module.data)
+            scriptPromises.push(evaluator.evalRawText(script.text, getModuleEvalData(module))
                 .then((text) => {
                     script.text = text;
                 }));
@@ -187,7 +195,7 @@ function processStyles(module) {
     let stylePromises = [];
     module.styles.forEach((style) => {
         if (style.text) {
-            stylePromises.push(evaluator.evalRawText(style.text, module.data)
+            stylePromises.push(evaluator.evalRawText(style.text, getModuleEvalData(module))
                 .then((text) => {
                     style.text = text;
                 }));
@@ -209,8 +217,11 @@ function processVnode(module, resolver, vnode, idGen) {
         if (!directiveExists) {
             vnode.data = data;
         } else {
-            // directives may change the data
+             //it's enough to just copy local data
             vnode.data = Object.assign({}, data);
+            if(vnode.data.local) {
+                vnode.data.local = Object.assign({}, vnode.data.local);
+            }
             vnode.dataCopied = true;
         }
     }
@@ -243,7 +254,7 @@ function processVnode(module, resolver, vnode, idGen) {
         
         // process text
         if (!isModuleVnode && vnode.text && vnode.text != '') {
-            promises.push(evaluator.evalHtmlContent(vnode.text, vnode.data)
+            promises.push(evaluator.evalHtmlContent(vnode.text, getVnodeEvalData(vnode))
                 .then((text) => {
                     vnode.text = text;
                 }));
@@ -261,7 +272,7 @@ function processVnode(module, resolver, vnode, idGen) {
             // build child module
             let childModule = {
                 type: childModuleType, 
-                data: Object.assign({ $global: module.data.$global, $parent: module.data }, childModuleAttrs)
+                data: { global: module.data.global, local: childModuleAttrs, parent: module.data.local }
             };
             parseModule(childModule, childContent, idGen);
             return processModule(childModule, resolver, idGen);
@@ -320,19 +331,19 @@ function processModule(module, resolver, idGen) {
     });
 }
 
-function parseEntryModule(entry, content) {
+function parseEntryModule(entryModule, content) {
     let vnode = null;
     
     // build vnode tree
     let parser = new HtmlParser.Parser({
         onprocessinginstruction: (name, data) => {
             if(!vnode) { //root level
-                entry.instructions = entry.instructions || [];
-                entry.instructions.push(data);
+                entryModule.instructions = entryModule.instructions || [];
+                entryModule.instructions.push(data);
             }
         }, 
         onopentag: (tagname, attrs) => {
-            if (!vnode && entry.vnode) {
+            if (!vnode && entryModule.vnode) {
                 throw new Error('only one root tag is allowed in entry template');
             }
             if (!vnode && tagname != 'html') {
@@ -343,7 +354,7 @@ function parseEntryModule(entry, content) {
             
             if (!vnode) {
                 vnode = current;
-                entry.vnode = vnode;
+                entryModule.vnode = vnode;
             } else {
                 vnode.children = vnode.children || [];
                 vnode.children.push(current);
@@ -374,21 +385,21 @@ function parseEntryModule(entry, content) {
 /*
  * module will contains: 
  * {
- *     type: string(invalid for entry)
- *     id: string(invalid for entry)
+ *     type: string(invalid for entry module)
+ *     id: string(invalid for entry module)
  *     data: object
  *     instructions: string array(invalid for module)
  *     vnode: object
- *     scripts: vnode array(invalid for entry)
- *     styles: vnode array(invalid for entry)
+ *     scripts: vnode array(invalid for entry module)
+ *     styles: vnode array(invalid for entry module)
  *     childModules: array [ {...} ]
  * }
  */
 module.exports = function (globalData, localData, content, resolver) {
-    let entry = {
-        data: Object.assign({ $global: globalData }, localData)
+    let entryModule = {
+        data: { global: globalData, local: localData }
     };
     let idGen = new IdGenerator();
-    parseEntryModule(entry, content);
-    return processModule(entry, resolver, idGen);
+    parseEntryModule(entryModule, content);
+    return processModule(entryModule, resolver, idGen);
 };

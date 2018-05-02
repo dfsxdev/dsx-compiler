@@ -1,12 +1,16 @@
 const evaluator = require('./evaluator');
 
+let getVnodeEvalData = (vnode) => {
+    return Object.assign({ $parent: vnode.data.parent }, vnode.data.global, vnode.data.local );
+}
+
 let repo = {
     'if': function () {
         return {
             onbind(vnode, val) {
                 // evaluate if expression
                 val = evaluator.getHtmlAttrExp(val);
-                return evaluator.evalExp(val, vnode.data).then((result) => {
+                return evaluator.evalExp(val, getVnodeEvalData(vnode)).then((result) => {
                     if (!result) {
                         vnode.delayDeleted = true;
                     } else if(vnode.parent) {
@@ -68,7 +72,7 @@ let repo = {
                     return;
                 }
                 
-                return evaluator.evalExp(parts[1], vnode.data).then((items) => {
+                return evaluator.evalExp(parts[1], getVnodeEvalData(vnode)).then((items) => {
                     if(!items || typeof items != 'object') {
                         return;
                     }
@@ -77,8 +81,9 @@ let repo = {
                     for (let key in items) {
                         let item = items[key];
                         let cloneVnode = vnode.clone();
-                        cloneVnode.data[itemName] = item;
-                        if (keyName)cloneVnode.data[keyName] = key;
+                        if(!cloneVnode.data.local) cloneVnode.data.local = {};
+                        cloneVnode.data.local[itemName] = item;
+                        if (keyName)cloneVnode.data.local[keyName] = key;
                         ++vnodeIndex;
                         vnode.parent.children.splice(vnodeIndex, 0, cloneVnode);
                     }
