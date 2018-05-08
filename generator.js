@@ -1,6 +1,7 @@
 const htmltags = require('./htmltags');
 const h = require('./vnode');
 
+//assign id attribute for modules if id does not exist.(unique module id is needed for further process)
 function attachIdToModuleVnodes(module) {
     if(module.id && !module.vnode.attrs.id) {
         module.vnode.attrs.id = module.id;
@@ -13,6 +14,8 @@ function attachIdToModuleVnodes(module) {
     }
 }
 
+// search all scripts
+//   script text block are transfomed here
 function searchScripts(module, scripts) {
     if(module.scripts) {
         //merge text blocks to one vnode
@@ -46,6 +49,9 @@ function searchScripts(module, scripts) {
     }
 }
 
+// merge all scripts
+//   duplicate scripts are removed here
+//   all script blocks are merge to one block
 function mergeScripts(module) {
     let scripts = [];
     searchScripts(module, scripts);
@@ -70,17 +76,14 @@ function mergeScripts(module) {
     });
     
     if(insideScriptTexts.length) {
-        let text = [
-            '\n$(function(){', 
-            insideScriptTexts.join('\n'), 
-            '});\n'
-        ].join('\n');
+        let text = '\n' + insideScriptTexts.join('\n') + '\n';
         result.push(h('script', { 'type': 'text/javascript' }, text));
     }
     
     return result;
 }
 
+// search all styles
 function searchStyles(module, styles) {
     if(module.styles) {
         module.styles.forEach((style) => {
@@ -95,6 +98,9 @@ function searchStyles(module, styles) {
     }
 }
 
+// merge all styles
+//   duplicate styles are removed here
+//   all style blocks are merge to one block
 function mergeStyles(module) {
     let styles = [];
     searchStyles(module, styles);
@@ -118,12 +124,14 @@ function mergeStyles(module) {
     });
     
     if(insideStyleTexts.length) {
-        result.push(h('style', { 'type': 'text/css' }, '\n' + insideStyleTexts.join('\n') + '\n'));
+        let text = '\n' + insideStyleTexts.join('\n') + '\n';
+        result.push(h('style', { 'type': 'text/css' }, text));
     }
     
     return result;
 }
 
+// insert all scripts and styles to head tag
 function insertScriptAndStyleVnodes(vnode, scripts, styles) {
     if(vnode.tag != 'html') {
         throw new Error('html element is not found');
@@ -148,60 +156,63 @@ function insertScriptAndStyleVnodes(vnode, scripts, styles) {
     });
 }
 
-function buildVnode(vnode, htmls, root) {
-    htmls.push(`<${vnode.tag}`);
+// generate vnode html
+function buildVnode(vnode, htmls, indent) {
+    let blank = (new Array(indent + 1)).join('  ');
+    htmls.push(`${blank}<${vnode.tag}`);
     for(let key in vnode.attrs) {
         let value = vnode.attrs[key];
         htmls.push(` ${key}="${value}"`);
     }
     if(htmltags['void'][vnode.tag]) {
-        htmls.push('>');
+        htmls.push('>\n');
         return;
     } else if(!vnode.children || !vnode.children.length) {
         htmls.push('>');
         if(vnode.text)htmls.push(vnode.text);
-        htmls.push(`</${vnode.tag}>`);
+        htmls.push(`</${vnode.tag}>\n`);
         return;
     } else {
-        htmls.push('>');
+        htmls.push('>\n');
     }
     
     if(vnode.children) {
         vnode.children.forEach(child => {
-            buildVnode(child, htmls);
+            buildVnode(child, htmls, indent + 1);
         });
     }
     
-    htmls.push(`</${vnode.tag}>`);
+    htmls.push(`${blank}</${vnode.tag}>\n`);
 }
 
-function buildEntry(entry) {
+function buildEntryModule(entryModule) {
     let htmls = [];
-    if(entry.instructions) {
-        entry.instructions.forEach((instruction) => {
+    if(entryModule.instructions) {
+        entryModule.instructions.forEach((instruction) => {
             htmls.push(`<${instruction}>`);
         });
     }
-    buildVnode(entry.vnode, htmls);
+    buildVnode(entryModule.vnode, htmls, 0);
     return htmls.join('');
 }
 
 /*
  * module will contains: 
  * {
- *     type: string(invalid for entry)
- *     id: string(invalid for entry)
+ *     type: string(invalid for entry module)
+ *     id: string(invalid for entry module)
  *     data: object
  *     vnode: object
- *     script: array(invalid for entry)
- *     style: array(invalid for entry)
+ *     script: array(invalid for entry module)
+ *     style: array(invalid for entry module)
  *     childModules: array [ {...} ]
  * }
  */
-module.exports = function(entry) {
-    attachIdToModuleVnodes(entry);
-    let scripts = mergeScripts(entry);
-    let styles = mergeStyles(entry);
-    insertScriptAndStyleVnodes(entry.vnode, scripts, styles);
-    return buildEntry(entry);
+// vnodes of all child modules are mounted already
+module.exports = function(entryModule) {
+    attachIdToModuleVnodes(entryModule);
+    let scripts = mergeScripts(entryModule);
+    let styles = mergeStyles(entryModule);
+    insertScriptAndStyleVnodes(entryModule.vnode, scripts, styles);
+    return buildEntryModule(entryModule);
 };

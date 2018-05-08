@@ -1,4 +1,5 @@
-const esprima = require('esprima');
+const evalExp = require('./evalexp');
+const evalCode = require('./evalcode');
 const Entities = require('html-entities').AllHtmlEntities;
 const entities = new Entities();
 const htmlAttrReg = /^\{\{((?!\}\}).)*\}\}$/;
@@ -6,7 +7,7 @@ const htmlTextReg = /\{\{((?!\}\}).)*\}\}/g;
 const htmlTextRegRaw = /\{\{=((?!\}\}).)*\}\}/g;
 const rawTextReg = /\{\{((?!\}\}).)*\}\}/g;
 
-function uniqueStringArray(arr) {
+function deduplicateStringArray(arr) {
     if(!arr) return arr;
     let map = {};
     arr.forEach((item) => {
@@ -15,122 +16,14 @@ function uniqueStringArray(arr) {
     return Object.keys(map);
 }
 
-function evalExpTree(expression, data) {
-    let wrapValue = (obj, val) => {
-        if(typeof val == 'function') {
-            return {
-                obj: obj, 
-                func: val
-            };
-        } else {
-            return val;
-        }
-    };
-    
-    switch(expression.type) {
-        case 'Identifier':
-            return Promise.resolve(data[expression.name]).then((val) => {
-                return wrapValue(data, val);
-            });
-        case 'Literal': 
-            return Promise.resolve(expression.value);
-        case 'BinaryExpression': 
-            return Promise.all([
-                evalExpTree(expression.left, data), 
-                evalExpTree(expression.right, data)
-            ]).then((ops) => {
-                switch(expression.operator) {
-                case '+':
-                    return ops[0] + ops[1];
-                case '-':
-                    return ops[0] - ops[1];
-                case '*':
-                    return ops[0] * ops[1];
-                case '/':
-                    return ops[0] / ops[1];
-                case '>>':
-                    return ops[0] >> ops[1];
-                case '<<':
-                    return ops[0] << ops[1];
-                case '>':
-                    return ops[0] > ops[1];
-                case '>=':
-                    return ops[0] >= ops[1];
-                case '<':
-                    return ops[0] < ops[1];
-                case '<=':
-                    return ops[0] <= ops[1];
-                case '==':
-                    return ops[0] == ops[1];
-                case '===':
-                    return ops[0] === ops[1];
-                case '!=':
-                    return ops[0] != ops[1];
-                case '!==':
-                    return ops[0] !== ops[1];
-                default:
-                    throw new Error('unknown operator ' + expression.operator);
-                }
-            });
-        case 'ConditionalExpression': 
-            return evalExpTree(expression.test, data).then((val) => {
-                if(val) {
-                    return evalExpTree(expression.consequent, data);
-                } else {
-                    return evalExpTree(expression.alternate, data);
-                }
-            });
-        case 'CallExpression':
-            {
-                let promises = [];
-                promises.push(evalExpTree(expression.callee, data));
-                expression.arguments.forEach((arg) => {
-                    promises.push(evalExpTree(arg, data));
-                });
-                return Promise.all(promises).then((objs) => {
-                    return objs[0].func.apply(objs[0].obj, objs.slice(1));
-                });
-            }
-        case 'MemberExpression':
-            if(expression.computed) {
-                return Promise.all([
-                    evalExpTree(expression.object, data), 
-                    evalExpTree(expression.property, data)
-                ]).then((objs) => {
-                    return Promise.resolve(objs[0][objs[1]]).then((val) => {
-                        return wrapValue(objs[0], val);
-                    });
-                })
-            } else {
-                return evalExpTree(expression.object, data).then((obj) => {
-                    return Promise.resolve(obj[expression.property.name]).then((val) => {
-                        return wrapValue(obj, val);
-                    });
-                });
-            }
-        default:
-            throw new Error('invalid expression ' + expression.type);
-    }
-}
-
-function evalExp(expression, data) {
-    let script = esprima.parse(expression);
-    if(script.body.length != 1 || 
-        script.body[0].type != 'ExpressionStatement') {
-            throw new Error('not a valid expression');
-        }
-    
-    return evalExpTree(script.body[0].expression, data);
-}
-
-function evalReplace(text, reg, ev) {
+function evalReplace(text, reg, evCallback) {
     let temp = text.match(reg);
     
-    let expressions = uniqueStringArray(temp || []);
+    let expressions = deduplicateStringArray(temp || []);
     let promises = [];
     let expressionMap = {};
     expressions.forEach((expression) => {
-        promises.push(ev(expression).then((val) => {
+        promises.push(evCallback(expression).then((val) => {
             expressionMap[expression] = val;
         }));
     });
@@ -211,5 +104,15 @@ module.exports = {
                 return ((val !== null && val != undefined) ? val.toString(): '');
             });
         });
+    }, 
+    //eval
+    evalCode(code, data) {
+        try {
+            return evalCode(code, data);
+        } catch (err) {
+            console.log('failed to evaluate code: ' + (code.length > 100 ? code.substr(0, 100) + '...' : code));
+            console.log(err);
+            return Promise.resolve(null);
+        }
     }
 };

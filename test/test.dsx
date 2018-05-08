@@ -7,7 +7,7 @@
     <body>
         <H1>{{title}}</H1>
         <img src="images/a.png">
-        <div class="abc" >{{'message is: ' + message}}</div>
+        <div class="abc" >{{'message is: ' + message}}{{Math.sqrt(100)}}</div>
         <div>
             <ul>
                 <!--li ds-for="news in newsList">
@@ -18,7 +18,7 @@
                 </li>
             </ul>
         </div>
-        <ds-module propa="mmm" propb="nnn" ds-for="error in errors" error="{{error}}"></ds-module>
-        <ds-module propa="xxx" propb="yyy" error="custom error"></ds-module>
+        <ds-module propa="mmm" propb="nnn" async-var1="{{asyncVar1}}" async-var2="{{asyncVar2}}" ds-for="error in errors" error="{{error}}"></ds-module>
+        <ds-module propa="xxx" propb="yyy" async-var1="{{asyncVar1}}" async-var2="{{asyncVar2}}" error="custom error"></ds-module>
     </body>
 </html>

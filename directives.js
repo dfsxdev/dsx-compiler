@@ -1,9 +1,11 @@
 const evaluator = require('./evaluator');
+const globalContext = require('./global_context');
 
 let getVnodeEvalData = (vnode) => {
-    return Object.assign({ $parent: vnode.data.parent }, vnode.data.global, vnode.data.local );
+    return Object.assign({ $parent: vnode.data.parent }, globalContext, vnode.data.global, vnode.data.local );
 }
 
+// directive factory
 let repo = {
     'if': function () {
         return {

@@ -1,13 +1,52 @@
-<!DOCTYPE html><html><head><script type="text/javascript" src="jquery.min.js"></script><style type="text/css">
+<!DOCTYPE html><html>
+  <head>
+    <script type="text/javascript" src="jquery.min.js"></script>
+    <style type="text/css">
 .module { width: 100px; height: 100px; }
-</style><script type="text/javascript">
-$(function(){
+</style>
+    <script type="text/javascript">
 var __mod_module = function(__mod_id) {
 console.log('script from module');
 }
-__mod_module("mod-001067d");
-__mod_module("mod-002067d");
-__mod_module("mod-003067d");
-__mod_module("mod-004067d");
-});
-</script></head><body><h1>abc</h1><img src="images/a.png"><div class="abc">message is: def</div><div><ul><li> news A </li><li> news B </li></ul></div><div id="mod-001067d"><h1>mmm</h1><img src="images/a.png"><div class="abc"> propb is: nnn error is: error1 </div></div><div id="mod-002067d"><h1>mmm</h1><img src="images/a.png"><div class="abc"> propb is: nnn error is: error2 </div></div><div id="mod-003067d"><h1>mmm</h1><img src="images/a.png"><div class="abc"> propb is: nnn error is: error3 </div></div><div id="mod-004067d"><h1>xxx</h1><img src="images/a.png"><div class="abc"> propb is: yyy error is: custom error </div></div></body></html>
+__mod_module("mod-00157b9");
+__mod_module("mod-00257b9");
+__mod_module("mod-00357b9");
+__mod_module("mod-00457b9");
+</script>
+  </head>
+  <body>
+    <h1>abc</h1>
+    <img src="images/a.png">
+    <div class="abc">message is: def10</div>
+    <div>
+      <ul>
+        <li> news A </li>
+        <li> news B </li>
+      </ul>
+    </div>
+    <div id="mod-00157b9">
+      <h1>mmm</h1>
+      <img src="images/a.png">
+      <div class="abc"> propb is: nnn error is: error1 </div>
+      <div> dynamic var1: abc, dynamic var2: def </div>
+    </div>
+    <div id="mod-00257b9">
+      <h1>mmm</h1>
+      <img src="images/a.png">
+      <div class="abc"> propb is: nnn error is: error2 </div>
+      <div> dynamic var1: abc, dynamic var2: def </div>
+    </div>
+    <div id="mod-00357b9">
+      <h1>mmm</h1>
+      <img src="images/a.png">
+      <div class="abc"> propb is: nnn error is: error3 </div>
+      <div> dynamic var1: abc, dynamic var2: def </div>
+    </div>
+    <div id="mod-00457b9">
+      <h1>xxx</h1>
+      <img src="images/a.png">
+      <div class="abc"> propb is: yyy error is: custom error </div>
+      <div> dynamic var1: abc, dynamic var2: def </div>
+    </div>
+  </body>
+</html>

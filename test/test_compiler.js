@@ -24,7 +24,21 @@ fs.readFile(path.join(__dirname, 'test.dsx'), 'utf8', (err, data) => {
         ], 
         title: 'abc', 
         message: 'def', 
-        errors: ['error1', 'error2', 'error3']
+        errors: ['error1', 'error2', 'error3'], 
+        asyncVar1() {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    resolve('abc');
+                }, 100);
+            });
+        }, 
+        asyncVar2() {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    resolve('def');
+                }, 100);
+            });
+        }
     }, {}).then((html) => {
         fs.writeFile(path.join(__dirname, 'test.html'), html, 'utf8', (err) => {
             console.log('done');
