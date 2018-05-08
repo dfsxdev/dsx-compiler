@@ -32,7 +32,7 @@ function searchScripts(module, scripts) {
             let text = [
                 `var __mod_${module.type} = function(__mod_id) {`, 
                 blocks.join('\n'), 
-                '}'
+                '};'
             ].join('\n');
             
             scripts.push(h('script', {

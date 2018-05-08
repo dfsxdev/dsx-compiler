@@ -1,5 +1,5 @@
 {
-  "name": "dsx-builder",
+  "name": "dsx-compiler",
   "version": "1.0.0",
   "private": true,
   "scripts": {
