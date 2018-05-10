@@ -1,5 +1,5 @@
 const HtmlParser = require('htmlparser2');
-const h = require('./vnode');
+const { h, t, ht } = require('./vnode');
 const directiveRepo = require('./directives');
 const evaluator = require('./evaluator');
 const crypto = require('crypto');
@@ -98,18 +98,24 @@ let evalModuleAttrs = (vnode) => {
 };
 
 let evalScriptVnode = (script, evalData) => {
-    return evaluator.evalRawText(script.text, evalData)
+    return evaluator.evalRawText(script.getDefaultText(), evalData)
         .then((text) => {
-            script.text = text;
+            script.setDefaultText(text);
         });
 };
 
 let evalStyleVnode = (style, evalData) => {
-    evaluator.evalRawText(style.text, evalData)
+    evaluator.evalRawText(style.getDefaultText(), evalData)
         .then((text) => {
-            style.text = text;
+            style.setDefaultText(text);
         });
 };
+
+let isServerScriptVnode = (vnode) => {
+    return (vnode.tag == 'script' &&
+        vnode.attrs['runat'] && 
+        vnode.attrs['runat'].toLowerCase() == 'server');
+}
 
 function parseModule(module, content, idGen) {
     let vnode = null;
@@ -124,8 +130,8 @@ function parseModule(module, content, idGen) {
             if (!vnode) {
                 if (tagname == 'script') {
                     //process server script first
-                    if(attrs['runat'] && attrs['runat'].toLowerCase() == 'server') {
-                        processType = 'serverScript';
+                    if(isServerScriptVnode(current)) {
+                        processType = 'serverscript';
                         module.serverScripts = module.serverScripts || [];
                         module.serverScripts.push(current);
                     } else {
@@ -151,17 +157,12 @@ function parseModule(module, content, idGen) {
             } else {
                 if (processType == 'html') {
                     //process server script first
-                    if (tagname == 'script' && 
-                        attrs['runat'] && 
-                        attrs['runat'].toLowerCase() == 'server') {
+                    if (isServerScriptVnode(current)) {
                         module.serverScripts = module.serverScripts || [];
-                        module.serverScripts.push(vnode);
-                        current.parent = vnode;
+                        module.serverScripts.push(current);
                         vnode = current;
                     } else {
-                        vnode.children = vnode.children || [];
-                        vnode.children.push(current);
-                        current.parent = vnode;
+                        vnode.appendChild(current);
                         vnode = current;
                     }
                 }
@@ -171,28 +172,43 @@ function parseModule(module, content, idGen) {
         onclosetag: (tagname) => {
             if (!vnode) return;
             
-            if (tagname == 'script' || tagname == 'style') {
-                if (vnode.text) {
-                    vnode.text = vnode.text.replace(/^\s+/, '');
-                    vnode.text = vnode.text.replace(/\s+$/, '');
-                }
-            } else {
-                if (vnode.text) {
-                    vnode.text = vnode.text.replace(/\s+/g, ' ');
+            if((vnode.tag == 'script' && !vnode.attrs.src) || vnode.tag == 'style') {
+                if(!vnode.hasDefaultText()) { // remove invalid script/style vnode
+                    if(processType == 'serverscript') {
+                        let index = module.serverScripts.indexOf(vnode);
+                        if(index >= 0) {
+                            module.serverScripts.splice(index, 1);
+                        }
+                    } else if(processType == 'script') {
+                        let index = module.scripts.indexOf(vnode);
+                        if(index >= 0) {
+                            module.scripts.splice(index, 1);
+                        }
+                    } else if(processType == 'style') {
+                        let index = module.styles.indexOf(vnode);
+                        if(index >= 0) {
+                            module.styles.splice(index, 1);
+                        }
+                    } else {
+                        vnode.parent.removeChild(vnode);
+                    }
                 }
             }
             
             if (processType == 'html' && vnode == module.vnode) {
                 processType = '';
             }
-            
             vnode = vnode.parent;
         }, 
         
         ontext: (text) => {
             if (!vnode || !text) return;
-            vnode.text = vnode.text || '';
-            vnode.text += text;
+            if (vnode.tag == 'script' || vnode.tag == 'style') {
+                text = text.trim();
+                if(!text) return;
+            }
+            
+            vnode.appendChild(t(text));
         }
     });
     
@@ -209,12 +225,10 @@ function processServerScripts(module) {
     // eval all server script text blocks and bind returned data to local data.
     let scriptPromises = [];
     module.serverScripts.forEach((script) => {
-        if(script.text) {
-            scriptPromises.push(evaluator.evalCode(script.text, getModuleEvalData(module)).then((data) => {
-                module.data.local = module.data.local || {};
-                Object.assign(module.data.local, data);
-            }));
-        }
+        scriptPromises.push(evaluator.evalCode(script.getDefaultText(), getModuleEvalData(module)).then((data) => {
+            module.data.local = module.data.local || {};
+            Object.assign(module.data.local, data);
+        }));
     });
     
     return Promise.all(scriptPromises);
@@ -229,7 +243,7 @@ function processScripts(module) {
     //eval all script text blocks
     let scriptPromises = [];
     module.scripts.forEach((script) => {
-        if (script.text) {
+        if(!script.attrs.src) {
             scriptPromises.push(evalScriptVnode(script, getModuleEvalData(module)));
         }
     });
@@ -246,7 +260,7 @@ function processStyles(module) {
     //eval all style text blocks
     let stylePromises = [];
     module.styles.forEach((style) => {
-        if (style.text) {
+        if(style.tag == 'style') {
             stylePromises.push(evalStyleVnode(style, getModuleEvalData(module)));
         }
     });
@@ -287,37 +301,36 @@ function processVnode(module, resolver, vnode, idGen) {
     let isModuleVnode = (vnode.tag.slice(0, 3) == 'ds-');
     let childModuleExtData = {};
     
-    return mainPromise.then(() => { //process attributes and text
+    return mainPromise.then(() => { //process attributes or value
         if(vnode.delayDeleted)return;
     
         let promises = [];
         
-        // process normal attributes
-        if(isModuleVnode) {
-            promises.push(evalModuleAttrs(vnode).then((attrs) => {
-                for(let key in attrs) {
-                    let normKey = key.replace(/-([a-z])/g, (c) => {
-                        return c.slice(1).toUpperCase();
-                    });
-                    childModuleExtData[normKey] = attrs[key];
+        if(vnode.isElement()) { // process attributes for element vnode
+            if(isModuleVnode) {
+                // convert attribute key of child module to data key by name convention(aa-bb => aaBb)
+                promises.push(evalModuleAttrs(vnode).then((attrs) => {
+                    for(let key in attrs) {
+                        let normKey = key.replace(/-([a-z])/g, (c) => {
+                            return c.slice(1).toUpperCase();
+                        });
+                        childModuleExtData[normKey] = attrs[key];
+                    }
+                }));
+            } else if(vnode.tag == 'script') { //script vnode is processed directly
+                if(!vnode.attrs.src) {
+                    promises.push(evalScriptVnode(vnode, getVnodeEvalData(vnode)));
                 }
-            }));
-        } else {
-            promises.push(evalHtmlAttrs(vnode));
-        }
-        
-        // process text
-        if (!isModuleVnode && vnode.text && vnode.text != '') {
-            if(vnode.tag == 'script') {
-                promises.push(evalScriptVnode(vnode, getVnodeEvalData(vnode)));
-            } else if(vnode.tag == 'style') {
+            } else if(vnode.tag == 'style') { //style vnode is processed directly
                 promises.push(evalStyleVnode(vnode, getVnodeEvalData(vnode)));
             } else {
-                promises.push(evaluator.evalHtmlContent(vnode.text, getVnodeEvalData(vnode))
-                    .then((text) => {
-                        vnode.text = text;
-                    }));
+                promises.push(evalHtmlAttrs(vnode));
             }
+        } else { // process value for text vnode
+            promises.push(evaluator.evalHtmlContent(vnode.value, getVnodeEvalData(vnode))
+            .then((value) => {
+                vnode.value = value;
+            }));
         }
         
         return Promise.all(promises);
@@ -350,7 +363,7 @@ function processVnode(module, resolver, vnode, idGen) {
             vnode.delayDeleted = true;
         });
     }).then(() => { //process children vnodes
-        if(vnode.delayDeleted)return;
+        if(vnode.delayDeleted || vnode.tag == 'script' || vnode.tag == 'style')return;
         
         // process children vnodes
         let children = vnode.children || [];
@@ -426,41 +439,43 @@ function parseEntryModule(entryModule, content) {
             if (!vnode) {
                 vnode = current;
                 entryModule.vnode = vnode;
-            } else if (tagname == 'script' && //process server script first
-                attrs['runat'] && 
-                attrs['runat'].toLowerCase() == 'server') {
+            } else if (isServerScriptVnode(current)) { //process server script first
                 entryModule.serverScripts = entryModule.serverScripts || [];
-                entryModule.serverScripts.push(vnode);
-                current.parent = vnode;
+                entryModule.serverScripts.push(current);
                 vnode = current;
             } else {
-                vnode.children = vnode.children || [];
-                vnode.children.push(current);
-                current.parent = vnode;
+                vnode.appendChild(current);
                 vnode = current;
             }
         }, 
         
         onclosetag: (tagname) => {
             if (!vnode) return;
-            if (tagname == 'script' || tagname == 'style') {
-                if (vnode.text) {
-                    vnode.text = vnode.text.replace(/^\s+/, '');
-                    vnode.text = vnode.text.replace(/\s+$/, '');
-                }
-            } else {
-                if (vnode.text) {
-                    vnode.text = vnode.text.replace(/\s+/g, ' ');
+            
+            if((vnode.tag == 'script' && !vnode.attrs.src) || vnode.tag == 'style') {
+                if(!vnode.hasDefaultText()) { // remove invalid script/style vnode
+                    if(isServerScriptVnode(vnode)) {
+                        let index = entryModule.serverScripts.indexOf(vnode);
+                        if(index >= 0) {
+                            entryModule.serverScripts.splice(index, 1);
+                        }
+                    } else {
+                        vnode.parent.removeChild(vnode);
+                    }
                 }
             }
             
             vnode = vnode.parent;
-        }, 
+        },
         
         ontext: (text) => {
-            if (!vnode || !text) return;
-            vnode.text = vnode.text || '';
-            vnode.text += text;
+            if(!vnode || !text) return;
+            if (vnode.tag == 'script' || vnode.tag == 'style') {
+                text = text.trim();
+                if(!text) return;
+            }
+
+            vnode.appendChild(t(text));
         }
     });
     

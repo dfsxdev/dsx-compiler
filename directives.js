@@ -87,7 +87,8 @@ let repo = {
                         cloneVnode.data.local[itemName] = item;
                         if (keyName)cloneVnode.data.local[keyName] = key;
                         ++vnodeIndex;
-                        vnode.parent.children.splice(vnodeIndex, 0, cloneVnode);
+                        vnode.parent.insertChild(cloneVnode, vnodeIndex);
+                        
                     }
                     
                     // put forward in case this property will be cloned

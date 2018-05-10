@@ -1,5 +1,5 @@
 const htmltags = require('./htmltags');
-const h = require('./vnode');
+const { h, t, ht } = require('./vnode');
 
 //assign id attribute for modules if id does not exist.(unique module id is needed for further process)
 function attachIdToModuleVnodes(module) {
@@ -18,14 +18,13 @@ function attachIdToModuleVnodes(module) {
 //   script text block are transfomed here
 function searchScripts(module, scripts) {
     if(module.scripts) {
-        //merge text blocks to one vnode
+        //merge text blocks to one block
         let blocks = [];
         module.scripts.forEach((script) => {
-            if((!script.attrs.src || !script.attrs.src.replace(/\s+/, '')) && 
-                script.text) {
-                blocks.push(script.text);
-            } else {
+            if(script.attrs.src) {
                 scripts.push(script);
+            } else {
+                blocks.push(script.getDefaultText());
             }
         });
         if(blocks.length) {
@@ -35,9 +34,9 @@ function searchScripts(module, scripts) {
                 '};'
             ].join('\n');
             
-            scripts.push(h('script', {
+            scripts.push(ht('script', {
                 'type': 'text/javascript', 
-                'invokejs': `__mod_${module.type}("${module.id}");` 
+                'invokejs': `__mod_${module.type}("${module.id}");`
             }, text));
         }
     }
@@ -60,16 +59,15 @@ function mergeScripts(module) {
     let insideScriptTexts = [];
     
     scripts.forEach(script => {
-        if(script.attrs.src && script.attrs.src.replace(/\s+/, '')) {
+        if(script.attrs.src) {
             //insert unique script link
             if(!result.find(item => item.attrs.src.trim() == script.attrs.src.trim())) {
-                delete script.text;
                 result.push(script);
             }
-        } else if(script.text) {
+        } else {
             //insert unique script block
-            if(insideScriptTexts.indexOf(script.text) < 0) {
-                insideScriptTexts.push(script.text);
+            if(insideScriptTexts.indexOf(script.getDefaultText()) < 0) {
+                insideScriptTexts.push(script.getDefaultText());
             }
             insideScriptTexts.push(script.attrs.invokejs);
         }
@@ -77,7 +75,7 @@ function mergeScripts(module) {
     
     if(insideScriptTexts.length) {
         let text = '\n' + insideScriptTexts.join('\n') + '\n';
-        result.push(h('script', { 'type': 'text/javascript' }, text));
+        result.push(ht('script', { 'type': 'text/javascript' }, text));
     }
     
     return result;
@@ -109,23 +107,22 @@ function mergeStyles(module) {
     let insideStyleTexts = [];
     
     styles.forEach(style => {
-        if(style.tag == 'link' && style.attrs.href && style.attrs.href.replace(/\s+/, '')) {
+        if(style.tag == 'link' && style.attrs.href) {
             //insert unique style link
             if(!result.find(item => item.attrs.href.trim() == style.attrs.href.trim())) {
-                delete style.text;
                 result.push(style);
             }
-        } else if(style.text) {
+        } else if(style.tag == 'style') {
             //insert unique script block
-            if(insideStyleTexts.indexOf(style.text) < 0) {
-                insideStyleTexts.push(style.text);
+            if(insideStyleTexts.indexOf(style.getDefaultText()) < 0) {
+                insideStyleTexts.push(style.getDefaultText());
             }
         }
     });
     
     if(insideStyleTexts.length) {
         let text = '\n' + insideStyleTexts.join('\n') + '\n';
-        result.push(h('style', { 'type': 'text/css' }, text));
+        result.push(ht('style', { 'type': 'text/css' }, text));
     }
     
     return result;
@@ -144,36 +141,42 @@ function insertScriptAndStyleVnodes(vnode, scripts, styles) {
     let headVnode = vnode.children.find(child => child.tag == 'head');
     if(!headVnode) {
         headVnode = h('head');
-        vnode.children.splice(0, 0, headVnode);
+        headVnode.appendChild(t('\n'));
+        vnode.appendChild(headVnode);
     }
-    headVnode.children = headVnode.children || [];
     
     styles.forEach(style => {
-        headVnode.children.push(style);
+        headVnode.appendChild(style);
+        headVnode.appendChild(t('\n'));
     });
     scripts.forEach(script => {
-        headVnode.children.push(script);
+        headVnode.appendChild(script);
+        headVnode.appendChild(t('\n'));
     });
 }
 
 // generate vnode html
 function buildVnode(vnode, htmls, indent) {
-    let blank = (new Array(indent + 1)).join('  ');
-    htmls.push(`${blank}<${vnode.tag}`);
+    if(vnode.isText()) {
+        htmls.push(vnode.value);
+        return;
+    }
+        
+    htmls.push(`<${vnode.tag}`);
     for(let key in vnode.attrs) {
         let value = vnode.attrs[key];
         htmls.push(` ${key}="${value}"`);
     }
     if(htmltags['void'][vnode.tag]) {
-        htmls.push('>\n');
+        htmls.push('>');
         return;
     } else if(!vnode.children || !vnode.children.length) {
         htmls.push('>');
         if(vnode.text)htmls.push(vnode.text);
-        htmls.push(`</${vnode.tag}>\n`);
+        htmls.push(`</${vnode.tag}>`);
         return;
     } else {
-        htmls.push('>\n');
+        htmls.push('>');
     }
     
     if(vnode.children) {
@@ -182,14 +185,14 @@ function buildVnode(vnode, htmls, indent) {
         });
     }
     
-    htmls.push(`${blank}</${vnode.tag}>\n`);
+    htmls.push(`</${vnode.tag}>`);
 }
 
 function buildEntryModule(entryModule) {
     let htmls = [];
     if(entryModule.instructions) {
         entryModule.instructions.forEach((instruction) => {
-            htmls.push(`<${instruction}>`);
+            htmls.push(`<${instruction}>\n`);
         });
     }
     buildVnode(entryModule.vnode, htmls, 0);

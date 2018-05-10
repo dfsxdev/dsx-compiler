@@ -3,6 +3,8 @@ module.exports = {
     Function: Function, 
     Promise: Promise, 
     Math: Math, 
+    JSON: JSON, 
+    Date: Date, 
     console: console
 };
 

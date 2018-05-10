@@ -148,6 +148,19 @@ function evalExpTree(expression, data) {
                     return evalExpTree(expression.alternate, data);
                 }
             });
+        case 'NewExpression':
+            {
+                let promises = [];
+                promises.push(evalExpTree(expression.callee, data));
+                expression.arguments.forEach((arg) => {
+                    promises.push(evalExpTree(arg, data));
+                });
+                return Promise.all(promises).then((objs) => {
+                    let o = Object.create(objs[0].__func.prototype);
+                    objs[0].__func.apply(o, objs.slice(1));
+                    return o;
+                });
+            }
         default:
             throw new Error('invalid expression ' + expression.type);
     }

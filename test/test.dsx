@@ -7,18 +7,15 @@
     <body>
         <H1>{{title}}</H1>
         <img src="images/a.png">
-        <div class="abc" >{{'message is: ' + message}}{{Math.sqrt(100)}}</div>
+        <div class="abc" >{{'message is: ' + message}}{{typeof (new Date())}}</div>
         <div>
             <ul>
-                <!--li ds-for="news in newsList">
-                    <p ds-if="news.views > 0">{{news.title}}</p>
-                </li-->
                 <li ds-for="news in newsList" ds-if="news.views > 0">
                     {{news.title}}
                 </li>
             </ul>
         </div>
-        <ds-module propa="mmm" propb="nnn" async-var1="{{asyncVar1}}" async-var2="{{asyncVar2}}" ds-for="error in errors" error="{{error}}"></ds-module>
         <ds-module propa="xxx" propb="yyy" async-var1="{{asyncVar1}}" async-var2="{{asyncVar2}}" error="custom error"></ds-module>
+        <div>abc<p>def</p>def</div>
     </body>
 </html>
