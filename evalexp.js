@@ -126,7 +126,7 @@ function evalExpTree(expression, data) {
                     throw new Error('unknown operator ' + expression.operator);
                 }
             });
-        case 'Logical Expression':
+        case 'LogicalExpression':
             return Promise.all([
                 evalExpTree(expression.left, data), 
                 evalExpTree(expression.right, data)
@@ -156,9 +156,12 @@ function evalExpTree(expression, data) {
                     promises.push(evalExpTree(arg, data));
                 });
                 return Promise.all(promises).then((objs) => {
+                    if(objs[0].__func == Date) {
+                        return new Date(...objs.slice(1));
+                    }
                     let o = Object.create(objs[0].__func.prototype);
-                    objs[0].__func.apply(o, objs.slice(1));
-                    return o;
+                    let result = objs[0].__func.apply(o, objs.slice(1));
+                    return ((result != null && (typeof result == 'object' || typeof result == 'function')) ? result : o);
                 });
             }
         default:

@@ -25,6 +25,14 @@ fs.readFile(path.join(__dirname, 'test.dsx'), 'utf8', (err, data) => {
         title: 'abc', 
         message: 'def', 
         errors: ['error1', 'error2', 'error3'], 
+        utils: {
+            formatDate(date) {
+                return JSON.stringify(date);
+            }
+        }, 
+        content: {
+            ts: (new Date()).getTime() / 1000
+        }, 
         asyncVar1() {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {

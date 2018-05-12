@@ -28,7 +28,8 @@ function vnode(tag, attrs, value) {
             return this.tag == TEXT_TAG;
         }, 
         hasDefaultText() {
-            return (this.children.length == 1 && 
+            return (this.children && 
+                this.children.length == 1 && 
                 this.children[0].isText());
         }, 
         getDefaultText() {
