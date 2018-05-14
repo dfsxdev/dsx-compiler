@@ -172,6 +172,7 @@ function parseModule(module, content, idGen) {
                     if (isServerScriptVnode(current)) {
                         module.serverScripts = module.serverScripts || [];
                         module.serverScripts.push(current);
+                        current.parent = vnode;
                         vnode = current;
                     } else {
                         vnode.appendChild(current);
@@ -202,7 +203,14 @@ function parseModule(module, content, idGen) {
                             module.styles.splice(index, 1);
                         }
                     } else {
-                        vnode.parent.removeChild(vnode);
+                        if(isServerScriptVnode(vnode)) {
+                            let index = entryModule.serverScripts.indexOf(vnode);
+                            if(index >= 0) {
+                                entryModule.serverScripts.splice(index, 1);
+                            }
+                        } else {
+                            vnode.parent.removeChild(vnode);
+                        }
                     }
                 }
             }
@@ -454,6 +462,7 @@ function parseEntryModule(entryModule, content) {
             } else if (isServerScriptVnode(current)) { //process server script first
                 entryModule.serverScripts = entryModule.serverScripts || [];
                 entryModule.serverScripts.push(current);
+                current.parent = vnode;
                 vnode = current;
             } else {
                 vnode.appendChild(current);
