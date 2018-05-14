@@ -117,6 +117,18 @@ let isServerScriptVnode = (vnode) => {
         vnode.attrs['runat'].toLowerCase() == 'server');
 }
 
+let appendVnodeText = (vnode, text) => {
+    if(vnode.children && vnode.children.length) {
+        let lastChild = vnode.children[vnode.children.length - 1];
+        if(lastChild.isText()) {
+            lastChild.value += text;
+            return;
+        }
+    }
+    
+    vnode.appendChild(t(text));
+}
+
 function parseModule(module, content, idGen) {
     let vnode = null;
     
@@ -208,7 +220,7 @@ function parseModule(module, content, idGen) {
                 if(!text) return;
             }
             
-            vnode.appendChild(t(text));
+            appendVnodeText(vnode, text);
         }
     });
     
@@ -475,7 +487,7 @@ function parseEntryModule(entryModule, content) {
                 if(!text) return;
             }
 
-            vnode.appendChild(t(text));
+            appendVnodeText(vnode, text);
         }
     });
     
