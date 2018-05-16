@@ -177,7 +177,7 @@ module.exports = function(expression, data) {
         }
     
     return evalExpTree(script.body[0].expression, data).then((result) => {
-        if(result['__obj'] && result['__func']) { //here we unwrap functions
+        if(typeof result == 'object' && result['__obj'] && result['__func']) { //here we unwrap functions
             return result['__func'];
         } else {
             return result;
