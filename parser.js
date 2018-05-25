@@ -135,6 +135,12 @@ function parseModule(module, content, idGen) {
     // build vnode tree
     let processType = '';
     let parser = new HtmlParser.Parser({
+        onprocessinginstruction: (name, data) => {
+            if(!vnode) { //root level
+                module.instructions = module.instructions || [];
+                module.instructions.push(data);
+            }
+        }, 
         onopentag: (tagname, attrs) => {
             let current = h(tagname, attrs);
             
@@ -204,9 +210,9 @@ function parseModule(module, content, idGen) {
                         }
                     } else {
                         if(isServerScriptVnode(vnode)) {
-                            let index = entryModule.serverScripts.indexOf(vnode);
+                            let index = module.serverScripts.indexOf(vnode);
                             if(index >= 0) {
-                                entryModule.serverScripts.splice(index, 1);
+                                module.serverScripts.splice(index, 1);
                             }
                         } else {
                             vnode.parent.removeChild(vnode);
@@ -435,94 +441,26 @@ function processModule(module, resolver, idGen) {
     });
 }
 
-function parseEntryModule(entryModule, content) {
-    let vnode = null;
-    
-    // build vnode tree
-    let parser = new HtmlParser.Parser({
-        onprocessinginstruction: (name, data) => {
-            if(!vnode) { //root level
-                entryModule.instructions = entryModule.instructions || [];
-                entryModule.instructions.push(data);
-            }
-        }, 
-        onopentag: (tagname, attrs) => {
-            if (!vnode && entryModule.vnode) {
-                throw new Error('only one root tag is allowed in entry template');
-            }
-            if (!vnode && tagname != 'html') {
-                throw new Error('root tag of entry template is not html');
-            }
-            
-            let current = h(tagname, attrs);
-            
-            if (!vnode) {
-                vnode = current;
-                entryModule.vnode = vnode;
-            } else if (isServerScriptVnode(current)) { //process server script first
-                entryModule.serverScripts = entryModule.serverScripts || [];
-                entryModule.serverScripts.push(current);
-                current.parent = vnode;
-                vnode = current;
-            } else {
-                vnode.appendChild(current);
-                vnode = current;
-            }
-        }, 
-        
-        onclosetag: (tagname) => {
-            if (!vnode) return;
-            
-            if((vnode.tag == 'script' && !vnode.attrs.src) || vnode.tag == 'style') {
-                if(!vnode.hasDefaultText()) { // remove invalid script/style vnode
-                    if(isServerScriptVnode(vnode)) {
-                        let index = entryModule.serverScripts.indexOf(vnode);
-                        if(index >= 0) {
-                            entryModule.serverScripts.splice(index, 1);
-                        }
-                    } else {
-                        vnode.parent.removeChild(vnode);
-                    }
-                }
-            }
-            
-            vnode = vnode.parent;
-        },
-        
-        ontext: (text) => {
-            if(!vnode || !text) return;
-            if (vnode.tag == 'script' || vnode.tag == 'style') {
-                text = text.trim();
-                if(!text) return;
-            }
-
-            appendVnodeText(vnode, text);
-        }
-    });
-    
-    parser.write(content);
-    parser.end();
-}
-
 /*
  * module will contains: 
  * {
- *     type: string(invalid for entry module)
- *     id: string(invalid for entry module)
+ *     type: string
+ *     id: string
  *     data: object
- *     instructions: string array(invalid for module)
+ *     instructions: string array
  *     vnode: object
- *     scripts: vnode array(invalid for entry module)
- *     styles: vnode array(invalid for entry module)
+ *     scripts: vnode array
+ *     styles: vnode array
  *     childModules: array [ {...} ]
  *     serverScripts: vnode array
  * }
  */
 module.exports = function (globalData, localData, content, resolver) {
     let entryModule = {
+        type: 'ROOT', 
         data: { global: globalData, local: localData }
     };
     let idGen = new IdGenerator();
-    parseEntryModule(entryModule, content);
+    parseModule(entryModule, content, idGen);
     return processModule(entryModule, resolver, idGen);
 };

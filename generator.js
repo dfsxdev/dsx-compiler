@@ -3,8 +3,10 @@ const { h, t, ht } = require('./vnode');
 
 //assign id attribute for modules if id does not exist.(unique module id is needed for further process)
 function attachIdToModuleVnodes(module) {
-    if(module.id && !module.vnode.attrs.id) {
-        module.vnode.attrs.id = module.id;
+    if(module.type != 'ROOT') {
+        if(module.id && !module.vnode.attrs.id) {
+            module.vnode.attrs.id = module.id;
+        }
     }
     
     if(module.childModules) {
@@ -28,16 +30,23 @@ function searchScripts(module, scripts) {
             }
         });
         if(blocks.length) {
-            let text = [
-                `var __mod_${module.type} = function(__mod_id) {`, 
-                blocks.join('\n'), 
-                '};'
-            ].join('\n');
-            
-            scripts.push(ht('script', {
-                'type': 'text/javascript', 
-                'invokejs': `__mod_${module.type}("${module.id}");`
-            }, text));
+            if(module.type == 'ROOT') {
+                let text = blocks.join('\n');
+                scripts.push(ht('script', {
+                    'type': 'text/javascript'
+                }, text));
+            } else {
+                let text = [
+                    `var __mod_${module.type} = function(__mod_id) {`, 
+                    blocks.join('\n'), 
+                    '};'
+                ].join('\n');
+                
+                scripts.push(ht('script', {
+                    'type': 'text/javascript', 
+                    'invokejs': `__mod_${module.type}("${module.id}");`
+                }, text));
+            }
         }
     }
     
@@ -69,7 +78,9 @@ function mergeScripts(module) {
             if(insideScriptTexts.indexOf(script.getDefaultText()) < 0) {
                 insideScriptTexts.push(script.getDefaultText());
             }
-            insideScriptTexts.push(script.attrs.invokejs);
+            if(script.attrs.invokejs) {
+                insideScriptTexts.push(script.attrs.invokejs);
+            }
         }
     });
     
@@ -131,7 +142,7 @@ function mergeStyles(module) {
 // insert all scripts and styles to head tag
 function insertScriptAndStyleVnodes(vnode, scripts, styles) {
     if(vnode.tag != 'html') {
-        throw new Error('html element is not found');
+        throw new Error('<html> element is not found');
     }
     
     if((!scripts || !scripts.length) && 
